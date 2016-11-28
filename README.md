@@ -2,9 +2,11 @@
 Udacity: Swiss Tournament Project
 
 Set-up: 
-1. Virtualbox and Vagrant must be installed. Instructions can be found at https://www.udacity.com/wiki/ud197/install-vagrant
-2. Copy files from this github repository: tournament.py, tournament_test.py, and tournament.sql to the tournament folder in the fullstack-nanodegree-vm-master folder.
-3. Open terminal. Directories may need to be changed if installation differed from instructions in step 1. 
+    1. Virtualbox and Vagrant must be installed. Instructions can be found at https://www.udacity.com/wiki/ud197/install-vagrant
+    2. Copy files from this github repository: tournament.py, tournament_test.py, and tournament.sql to the tournament folder in the
+    fullstack-nanodegree-vm-master folder.
+    3. Open terminal. Directories may need to be changed if installation differed from instructions in step 1. 
+    
     Type the following commands: 
           cd ~
           cd Desktop/fullstack-nanodegree-vm-master/vagrant
