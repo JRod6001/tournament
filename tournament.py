@@ -6,42 +6,50 @@
 import psycopg2
 
 
-def connect():
+def connect(database_name="tournament"):
     """Connect to the PostgreSQL database.  Returns a database connection."""
-    return psycopg2.connect("dbname=tournament")
+    try:
+        db = psycopg2.connect("dbname={}".format(database_name))
+        cursor = db.cursor()
+        return db, cursor
+    except:
+        print("error trying to connect to DB")
 
 
 def deleteMatches():
     """Remove all the match records from the database."""
-    conn = connect()
-    cur = conn.cursor()
-    # set all win and match records to 0
-    cur.execute("""UPDATE tour_table SET wins=0, matches=0
-                   WHERE matches!=0;""")
-    conn.commit()
-    cur.close()
-    conn.close()
+    db, cursor = connect()
+
+    # Delete all rows from the matches table
+    query = """TRUNCATE TABLE matches;"""
+    cursor.execute(query)
+
+    db.commit()
+    db.close()
 
 
 def deletePlayers():
     """Remove all the player records from the database."""
-    conn = connect()
-    cur = conn.cursor()
-    # Remove all rows from table
-    cur.execute("""DELETE FROM tour_table;""")
-    conn.commit()
-    cur.close()
-    conn.close()
+    db, cursor = connect()
+
+    # Remove all rows from players table
+    query = """TRUNCATE TABLE players, matches;"""
+    cursor.execute(query)
+
+    db.commit()
+    db.close()
 
 
 def countPlayers():
     """Returns the number of players currently registered."""
-    conn = connect()
-    cur = conn.cursor()
-    # count the number of rows in table
-    cur.execute("SELECT COUNT(player_name) FROM tour_table;")
-    count = int(cur.fetchone()[0])
-    conn.close()
+    db, cursor = connect()
+
+    # query the number of players currently registered
+    query = "SELECT COUNT(player_name) FROM players;"
+    cursor.execute(query)
+    count = int(cursor.fetchone()[0])
+
+    db.close()
     return(count)
 
 
@@ -52,16 +60,16 @@ def registerPlayer(name):
     Args:
       name: the player's full name (need not be unique).
     """
-    conn = connect()
-    cur = conn.cursor()
+    db, cursor = connect()
+
     # creates a new entry with the name passed to the function
-    SQL = """INSERT INTO tour_table (player_name, matches, wins)
-             VALUES (%s, 0, 0);"""
+    SQL = """INSERT INTO players (player_name)
+             VALUES (%s);"""
     data = (name,)
-    cur.execute(SQL, data)
-    conn.commit()
-    cur.close()
-    conn.close()
+    cursor.execute(SQL, data)
+
+    db.commit()
+    db.close()
 
 
 def playerStandings():
@@ -75,15 +83,16 @@ def playerStandings():
         wins: the number of matches the player has won
         matches: the number of matches the player has played
     """
-    conn = connect()
-    cur = conn.cursor()
-    # get a tuple of all the players ranked in order of most wins
-    cur.execute("""SELECT player_id, player_name, wins, matches FROM tour_table
-                   ORDER BY wins DESC;""")
-    standings = cur.fetchall()
-    cur.close()
-    conn.close()
-    return(standings)
+
+    db, cursor = connect()
+
+    # This queries the data in the player_standings view
+    query = """SELECT * from player_standings;"""
+    cursor.execute(query)
+    standings = cursor.fetchall()
+
+    db.close()
+    return standings
 
 
 def reportMatch(winner, loser):
@@ -92,30 +101,16 @@ def reportMatch(winner, loser):
       winner:  the id number of the player who won
       loser:  the id number of the player who lost
     """
-    conn = connect()
-    cur = conn.cursor()
-    # get a tuple containing the number of wins and matches for the winner
-    cur.execute("SELECT wins, matches FROM tour_table where player_id=(%s);",
-                (winner,))
-    winner_update = cur.fetchone()
-    winner_wins = int(winner_update[0]) + 1
-    winner_matches = int(winner_update[1]) + 1
-    # increment the number of wins and matches for winner by one
-    cur.execute("""UPDATE tour_table SET wins=(%s), matches=(%s)
-                WHERE player_id=(%s);""",
-                (winner_wins, winner_matches, winner,))
-    conn.commit()
-    # get a tuple containing the number of wins and matches for the loser
-    cur.execute("SELECT matches FROM tour_table where player_id=(%s)",
-                (loser,))
-    matches_update = cur.fetchone()
-    loser_matches = int(matches_update[0]) + 1
-    # increment the number of matches for the loser by one
-    cur.execute("""UPDATE tour_table SET matches=(%s) WHERE player_id=(%s)""",
-                (loser_matches, loser, ))
-    conn.commit()
-    cur.close()
-    conn.close()
+    db, cursor = connect()
+
+    # enter into the matches table the winning and losing player for a match
+    query = """INSERT INTO matches (winning_player, losing_player)
+            VALUES (%s, %s);"""
+    data = (winner, loser,)
+    cursor.execute(query, data)
+
+    db.commit()
+    db.close()
 
 
 def swissPairings():
@@ -133,16 +128,13 @@ def swissPairings():
         id2: the second player's unique id
         name2: the second player's name
     """
-    conn = connect()
-    cur = conn.cursor()
-    # get a tuple of all players in descending order of most wins
-    cur.execute("""SELECT player_id, player_name FROM tour_table
-                   ORDER BY wins DESC;""")
-    ranking = cur.fetchall()
-    number_players = len(ranking)
+    ranking = playerStandings()
     counter = 0
+    number_players = len(ranking)
     pairs_list = []
-    #  take a list of players in order of wins, and split them into pairs
+
+    # This statement takes the list of tuples retrieved from playerStandings()
+    # and returns a list of paired players
     while counter < number_players:
         player_a = counter
         counter += 1
@@ -151,6 +143,6 @@ def swissPairings():
                  ranking[player_b][0], ranking[player_b][1], )
         pairs_list.append(match)
         counter += 1
-    cur.close()
-    conn.close()
+
     return(pairs_list)
+
